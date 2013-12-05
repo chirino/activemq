@@ -25,8 +25,13 @@ public class Stomp11NIOTest extends Stomp11Test {
 
     @Override
 	protected void addStompConnector() throws Exception {
-        TransportConnector connector = brokerService.addConnector("stomp+nio://0.0.0.0:"+nioPort);
-        nioPort = connector.getConnectUri().getPort();
+        brokerService.addConnector("stomp+nio://0.0.0.0:0");
+    }
+
+    @Override
+    public void startBroker() throws Exception {
+        super.startBroker();
+        nioPort = brokerService.getConnectorByName("stomp+nio://0.0.0.0:0").getConnectUri().getPort();
     }
 
     @Override

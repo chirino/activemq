@@ -286,7 +286,9 @@ public class BrokerService implements Service {
      * @throws Exception
      */
     public TransportConnector addConnector(URI bindAddress) throws Exception {
-        return addConnector(createTransportConnector(bindAddress));
+        TransportConnector connector = new TransportConnector();
+        connector.setUri(bindAddress);
+        return addConnector(connector);
     }
 
     /**
