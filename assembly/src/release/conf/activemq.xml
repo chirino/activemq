@@ -82,6 +82,10 @@
             <kahaDB directory="${activemq.data}/kahadb"/>
         </persistenceAdapter>
 
+        <plugins>
+            <jaasAuthenticationPlugin configuration="activemq" />
+        </plugins>
+
 
           <!--
             The systemUsage controls the maximum amount of space the broker will
