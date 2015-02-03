@@ -30,6 +30,7 @@ import java.util.concurrent.TimeoutException;
 
 import javax.jms.Connection;
 
+import javax.jms.JMSSecurityException;
 import junit.framework.TestCase;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.broker.BrokerFactory;
@@ -118,7 +119,14 @@ public class BrokerXmlConfigStartTest {
                     ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(UriToConnectTo);
                     Connection connection = connectionFactory.createConnection(secProps.getProperty("activemq.username"),
                             secProps.getProperty("activemq.password"));
-                    connection.start();
+                    try {
+                        connection.start();
+                    } catch (JMSSecurityException failedLogin) {
+                        if (!"activemq.xml".equals(shortName)) {
+                            // no users enabled by default
+                            throw failedLogin;
+                        }
+                    }
                     connection.close();
                     break;
                 } else {
@@ -140,6 +148,7 @@ public class BrokerXmlConfigStartTest {
         System.setProperty("activemq.home", "target"); // not a valid home but ok for xml validation
         System.setProperty("activemq.data", "target");
         System.setProperty("activemq.conf", "target/conf");
+        System.setProperty("java.security.auth.login.config", "src/release/conf/login.config");
         secProps = new Properties();
         secProps.load(new FileInputStream(new File("target/conf/credentials.properties")));
     }

@@ -3,6 +3,16 @@ Welcome to Apache ActiveMQ
 Apache ActiveMQ is a high performance Apache 2.0 licensed
 Message Broker and JMS 1.1 implementation.
 
+Security Prerequisites
+======================
+
+By default, no users are defined for the container.
+To enable remote access to the container, you must create at least one user in
+the ./conf/users.properties file and assign it to the group in ./conf/groups.properties.
+
+To make the ActiveMQ Web console accessible, you need to add a user to the ./conf/jetty-realm.properties file
+or use HawtIO at http://localhost:8161/hawtio
+
 Getting Started
 ===============
 To help you get started, try the following links:
