@@ -68,7 +68,7 @@
     <hadoop-version>1.0.0</hadoop-version>
     <hawtbuf-version>1.11</hawtbuf-version>
     <hawtdispatch-version>1.21</hawtdispatch-version>
-    <hawtio-version>1.5.redhat-064</hawtio-version>
+    <hawtio-version>1.5.redhat-069</hawtio-version>
     <howl-version>0.1.8</howl-version>
     <hsqldb-version>1.8.0.12</hsqldb-version>
     <httpclient-version>4.2.5</httpclient-version>
