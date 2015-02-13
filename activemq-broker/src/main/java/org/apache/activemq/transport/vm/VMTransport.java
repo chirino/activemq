@@ -183,18 +183,25 @@ public class VMTransport implements Transport, Task {
                 mq.clear();
             }
 
-            // Allow pending deliveries to finish up, but don't wait
-            // forever in case of an stalled onCommand.
+            // don't wait for completion
             if (tr != null) {
                 try {
-                    tr.shutdown(TimeUnit.SECONDS.toMillis(1));
+                    tr.shutdown(1);
                 } catch(Exception e) {
                 }
                 tr = null;
             }
 
             if (peer.transportListener != null) {
-                // let any requests pending a response see an exception and shutdown
+                // let the peer know that we are disconnecting after attempting
+                // to cleanly shutdown the async tasks so that this is the last
+                // command it see's.
+                try {
+                    peer.transportListener.onCommand(new ShutdownInfo());
+                } catch (Exception ignore) {
+                }
+
+                // let any requests pending a response see an exception
                 try {
                     peer.transportListener.onException(new TransportDisposedIOException("peer (" + this + ") stopped."));
                 } catch (Exception ignore) {
