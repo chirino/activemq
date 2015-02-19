@@ -80,6 +80,7 @@ public class AmqpTestSupport {
 
     @Before
     public void setUp() throws Exception {
+        LOG.info("========== start " + getTestName() + " ==========");
         exceptions.clear();
         if (killHungThreads("setUp")) {
             LOG.warn("HUNG THREADS in setUp");
@@ -101,9 +102,11 @@ public class AmqpTestSupport {
     protected void createBroker(boolean deleteAllMessages) throws Exception {
         brokerService = new BrokerService();
         brokerService.setPersistent(false);
+        brokerService.setSchedulerSupport(false);
         brokerService.setAdvisorySupport(false);
         brokerService.setDeleteAllMessagesOnStartup(deleteAllMessages);
         brokerService.setUseJmx(true);
+        brokerService.getManagementContext().setCreateMBeanServer(false);
 
         SSLContext ctx = SSLContext.getInstance("TLS");
         ctx.init(new KeyManager[0], new TrustManager[]{new DefaultTrustManager()}, new SecureRandom());
@@ -134,25 +137,25 @@ public class AmqpTestSupport {
         }
         if (isUseTcpConnector()) {
             connector = brokerService.addConnector(
-                "amqp://0.0.0.0:" + port + "?transport.transformer=" + getAmqpTransformer());
+                "amqp://0.0.0.0:" + port + "?transport.transformer=" + getAmqpTransformer() + getAdditionalConfig());
             port = connector.getConnectUri().getPort();
             LOG.debug("Using amqp port " + port);
         }
         if (isUseSslConnector()) {
             connector = brokerService.addConnector(
-                "amqp+ssl://0.0.0.0:" + sslPort + "?transport.transformer=" + getAmqpTransformer());
+                "amqp+ssl://0.0.0.0:" + sslPort + "?transport.transformer=" + getAmqpTransformer() + getAdditionalConfig());
             sslPort = connector.getConnectUri().getPort();
             LOG.debug("Using amqp+ssl port " + sslPort);
         }
         if (isUseNioConnector()) {
             connector = brokerService.addConnector(
-                "amqp+nio://0.0.0.0:" + nioPort + "?transport.transformer=" + getAmqpTransformer());
+                "amqp+nio://0.0.0.0:" + nioPort + "?transport.transformer=" + getAmqpTransformer() + getAdditionalConfig());
             nioPort = connector.getConnectUri().getPort();
             LOG.debug("Using amqp+nio port " + nioPort);
         }
         if (isUseNioPlusSslConnector()) {
             connector = brokerService.addConnector(
-                "amqp+nio+ssl://0.0.0.0:" + nioPlusSslPort + "?transport.transformer=" + getAmqpTransformer());
+                "amqp+nio+ssl://0.0.0.0:" + nioPlusSslPort + "?transport.transformer=" + getAmqpTransformer() + getAdditionalConfig());
             nioPlusSslPort = connector.getConnectUri().getPort();
             LOG.debug("Using amqp+nio+ssl port " + nioPlusSslPort);
         }
@@ -180,6 +183,10 @@ public class AmqpTestSupport {
 
     protected String getAmqpTransformer() {
         return "jms";
+    }
+
+    protected String getAdditionalConfig() {
+        return "";
     }
 
     public void startBroker() throws Exception {
@@ -211,6 +218,7 @@ public class AmqpTestSupport {
 
     @After
     public void tearDown() throws Exception {
+        LOG.info("========== tearDown " + getTestName() + " ==========");
         ExecutorService executor = Executors.newSingleThreadExecutor();
         Future<Boolean> future = executor.submit(new TearDownTask());
         try {
@@ -260,6 +268,10 @@ public class AmqpTestSupport {
         }
 
         session.close();
+    }
+
+    public String getTestName() {
+        return name.getMethodName();
     }
 
     protected BrokerViewMBean getProxyToBroker() throws MalformedObjectNameException, JMSException {

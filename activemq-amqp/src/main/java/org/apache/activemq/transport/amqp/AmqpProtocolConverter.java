@@ -63,6 +63,13 @@ import org.apache.activemq.command.SubscriptionInfo;
 import org.apache.activemq.command.TransactionInfo;
 import org.apache.activemq.selector.SelectorParser;
 import org.apache.activemq.store.PersistenceAdapterSupport;
+import org.apache.activemq.transport.amqp.message.AMQPNativeInboundTransformer;
+import org.apache.activemq.transport.amqp.message.AMQPRawInboundTransformer;
+import org.apache.activemq.transport.amqp.message.AutoOutboundTransformer;
+import org.apache.activemq.transport.amqp.message.EncodedMessage;
+import org.apache.activemq.transport.amqp.message.InboundTransformer;
+import org.apache.activemq.transport.amqp.message.JMSMappingInboundTransformer;
+import org.apache.activemq.transport.amqp.message.OutboundTransformer;
 import org.apache.activemq.util.IOExceptionSupport;
 import org.apache.activemq.util.IdGenerator;
 import org.apache.activemq.util.LongSequenceGenerator;
@@ -102,13 +109,6 @@ import org.apache.qpid.proton.engine.impl.CollectorImpl;
 import org.apache.qpid.proton.engine.impl.ProtocolTracer;
 import org.apache.qpid.proton.engine.impl.TransportImpl;
 import org.apache.qpid.proton.framing.TransportFrame;
-import org.apache.qpid.proton.jms.AMQPNativeInboundTransformer;
-import org.apache.qpid.proton.jms.AMQPRawInboundTransformer;
-import org.apache.qpid.proton.jms.AutoOutboundTransformer;
-import org.apache.qpid.proton.jms.EncodedMessage;
-import org.apache.qpid.proton.jms.InboundTransformer;
-import org.apache.qpid.proton.jms.JMSMappingInboundTransformer;
-import org.apache.qpid.proton.jms.OutboundTransformer;
 import org.apache.qpid.proton.message.Message;
 import org.fusesource.hawtbuf.Buffer;
 import org.fusesource.hawtbuf.ByteArrayOutputStream;
@@ -141,6 +141,10 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
 
     public AmqpProtocolConverter(AmqpTransport transport, BrokerService brokerService) {
         this.amqpTransport = transport;
+        AmqpInactivityMonitor monitor = transport.getInactivityMonitor();
+        if (monitor != null) {
+            monitor.setProtocolConverter(this);
+        }
         this.amqpWireFormat = transport.getWireFormat();
         this.brokerService = brokerService;
 
@@ -513,7 +517,8 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
 
         connectionInfo.setResponseRequired(true);
         connectionInfo.setConnectionId(connectionId);
-        // configureInactivityMonitor(connect.keepAlive());
+
+        configureInactivityMonitor();
 
         String clientId = protonConnection.getRemoteContainer();
         if (clientId != null && !clientId.isEmpty()) {
@@ -576,6 +581,15 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
         } else {
             onSenderOpen((Sender) link, sessionContext);
         }
+    }
+
+    private void configureInactivityMonitor() {
+        AmqpInactivityMonitor monitor = amqpTransport.getInactivityMonitor();
+        if (monitor == null) {
+            return;
+        }
+
+        monitor.stopConnectChecker();
     }
 
     InboundTransformer inboundTransformer;
@@ -648,7 +662,6 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
         private final ActiveMQDestination destination;
         private boolean closed;
         private final boolean anonymous;
-        private MessageId lastDispatched;
 
         public ProducerContext(ProducerId producerId, ActiveMQDestination destination, boolean anonymous) {
             this.producerId = producerId;

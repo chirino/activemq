@@ -25,10 +25,10 @@ import org.apache.activemq.command.Command;
 import org.apache.activemq.transport.Transport;
 import org.apache.activemq.transport.TransportFilter;
 import org.apache.activemq.transport.TransportListener;
+import org.apache.activemq.transport.amqp.message.InboundTransformer;
 import org.apache.activemq.transport.tcp.SslTransport;
 import org.apache.activemq.util.IOExceptionSupport;
 import org.apache.activemq.wireformat.WireFormat;
-import org.apache.qpid.proton.jms.InboundTransformer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +44,7 @@ public class AmqpTransportFilter extends TransportFilter implements AmqpTranspor
     static final Logger TRACE_FRAMES = LoggerFactory.getLogger(AmqpTransportFilter.class.getPackage().getName() + ".FRAMES");
     private IAmqpProtocolConverter protocolConverter;
     private AmqpWireFormat wireFormat;
+    private AmqpInactivityMonitor monitor;
 
     private boolean trace;
     private String transformer = InboundTransformer.TRANSFORMER_NATIVE;
@@ -55,6 +56,15 @@ public class AmqpTransportFilter extends TransportFilter implements AmqpTranspor
         if (wireFormat instanceof AmqpWireFormat) {
             this.wireFormat = (AmqpWireFormat) wireFormat;
         }
+    }
+
+    @Override
+    public void start() throws Exception {
+        if (monitor != null) {
+            monitor.setProtocolConverter(protocolConverter);
+            monitor.startConnectChecker(getConnectAttemptTimeout());
+        }
+        super.start();
     }
 
     @Override
@@ -183,5 +193,23 @@ public class AmqpTransportFilter extends TransportFilter implements AmqpTranspor
 
     public void setProducerCredit(int producerCredit) {
         protocolConverter.setProducerCredit(producerCredit);
+    }
+
+    @Override
+    public void setInactivityMonitor(AmqpInactivityMonitor monitor) {
+        this.monitor = monitor;
+    }
+
+    @Override
+    public AmqpInactivityMonitor getInactivityMonitor() {
+        return monitor;
+    }
+
+    public long getConnectAttemptTimeout() {
+        return wireFormat.getConnectAttemptTimeout();
+    }
+
+    public void setConnectAttemptTimeout(long connectAttemptTimeout) {
+        wireFormat.setConnectAttemptTimeout(connectAttemptTimeout);
     }
 }
