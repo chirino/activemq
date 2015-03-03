@@ -45,7 +45,11 @@ import javax.jms.QueueBrowser;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 import javax.jms.Topic;
+import javax.jms.TopicConnection;
+import javax.jms.TopicSession;
+import javax.jms.TopicSubscriber;
 
+import org.apache.activemq.broker.jmx.BrokerView;
 import org.apache.activemq.broker.jmx.BrokerViewMBean;
 import org.apache.activemq.broker.jmx.ConnectorViewMBean;
 import org.apache.activemq.broker.jmx.QueueViewMBean;
@@ -596,8 +600,9 @@ public class JMSClientTest extends JMSClientTestSupport {
         ActiveMQAdmin.enableJMSFrameTracing();
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicReference<Message> received = new AtomicReference<Message>();
+        String durableClientId = getDestinationName() + "-ClientId";
 
-        connection = createConnection();
+        connection = createConnection(durableClientId);
         {
             Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             Topic topic = session.createTopic(getDestinationName());
@@ -628,8 +633,9 @@ public class JMSClientTest extends JMSClientTestSupport {
     @Test(timeout=30000)
     public void testDurableConsumerSync() throws Exception {
         ActiveMQAdmin.enableJMSFrameTracing();
+        String durableClientId = getDestinationName() + "-ClientId";
 
-        connection = createConnection();
+        connection = createConnection(durableClientId);
         {
             Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             Topic topic = session.createTopic(getDestinationName());
@@ -881,13 +887,49 @@ public class JMSClientTest extends JMSClientTestSupport {
         assertEquals(messageText, textMessage.getText());
     }
 
+    @Test(timeout=30*1000)
+    public void testDurableTopicStateAfterSubscriberClosed() throws Exception {
+        String durableClientId = getDestinationName() + "-ClientId";
+        String durableSubscriberName = getDestinationName() + "-SubscriptionName";
+
+        BrokerView adminView = this.brokerService.getAdminView();
+        int durableSubscribersAtStart = adminView.getDurableTopicSubscribers().length;
+        int inactiveSubscribersAtStart = adminView.getInactiveDurableTopicSubscribers().length;
+        LOG.debug(">>>> At Start, durable Subscribers {} inactiveDurableSubscribers {}", durableSubscribersAtStart, inactiveSubscribersAtStart);
+
+        TopicConnection subscriberConnection =
+            JMSClientContext.INSTANCE.createTopicConnection(getBrokerURI(), "admin", "password");
+        subscriberConnection.setClientID(durableClientId);
+        TopicSession subscriberSession = subscriberConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
+        Topic topic = subscriberSession.createTopic(getDestinationName());
+        TopicSubscriber messageConsumer = subscriberSession.createDurableSubscriber(topic, durableSubscriberName);
+
+        assertNotNull(messageConsumer);
+
+        int durableSubscribers = adminView.getDurableTopicSubscribers().length;
+        int inactiveSubscribers = adminView.getInactiveDurableTopicSubscribers().length;
+        LOG.debug(">>>> durable Subscribers after creation {} inactiveDurableSubscribers {}", durableSubscribers, inactiveSubscribers);
+        assertEquals("Wrong number of durable subscribers after first subscription", 1, (durableSubscribers - durableSubscribersAtStart));
+        assertEquals("Wrong number of inactive durable subscribers after first subscription", 0, (inactiveSubscribers - inactiveSubscribersAtStart));
+
+        subscriberConnection.close();
+
+        durableSubscribers = adminView.getDurableTopicSubscribers().length;
+        inactiveSubscribers = adminView.getInactiveDurableTopicSubscribers().length;
+        LOG.debug(">>>> durable Subscribers after close {} inactiveDurableSubscribers {}", durableSubscribers, inactiveSubscribers);
+        assertEquals("Wrong number of durable subscribers after close", 0, (durableSubscribersAtStart));
+        assertEquals("Wrong number of inactive durable subscribers after close", 1, (inactiveSubscribers - inactiveSubscribersAtStart));
+    }
+
     @Test(timeout=30000)
     public void testDurableConsumerUnsubscribe() throws Exception {
         ActiveMQAdmin.enableJMSFrameTracing();
 
+        String durableClientId = getDestinationName() + "-ClientId";
+
         final BrokerViewMBean broker = getProxyToBroker();
 
-        connection = createConnection();
+        connection = createConnection(durableClientId);
         connection.start();
 
         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
@@ -955,10 +997,11 @@ public class JMSClientTest extends JMSClientTestSupport {
     @Test(timeout=30000)
     public void testDurableConsumerUnsubscribeWhileActive() throws Exception {
         ActiveMQAdmin.enableJMSFrameTracing();
+        String durableClientId = getDestinationName() + "-ClientId";
 
         final BrokerViewMBean broker = getProxyToBroker();
 
-        connection = createConnection();
+        connection = createConnection(durableClientId);
         connection.start();
 
         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);

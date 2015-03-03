@@ -1,4 +1,3 @@
-package org.apache.activemq.transport.amqp;
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,6 +14,8 @@ package org.apache.activemq.transport.amqp;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.activemq.transport.amqp;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -23,33 +24,32 @@ import static org.junit.Assert.fail;
 import java.net.URI;
 
 import javax.jms.Connection;
-import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
+import javax.jms.JMSSecurityException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
+import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 
 import org.apache.activemq.broker.BrokerFactory;
 import org.apache.activemq.broker.BrokerService;
 import org.apache.qpid.amqp_1_0.client.ConnectionClosedException;
-import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
-import org.apache.qpid.amqp_1_0.jms.impl.QueueImpl;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SimpleAMQPAuthTest {
+public class JMSClientSimpleAuthTest {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SimpleAMQPAuthTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(JMSClientSimpleAuthTest.class);
 
     private final String SIMPLE_AUTH_AMQP_BROKER_XML =
         "org/apache/activemq/transport/amqp/simple-auth-amqp-broker.xml";
     private BrokerService brokerService;
-    private int port;
+    private URI amqpURI;
 
     @Before
     public void setUp() throws Exception {
@@ -67,19 +67,13 @@ public class SimpleAMQPAuthTest {
     @Test(timeout = 10000)
     public void testNoUserOrPassword() throws Exception {
         try {
-            ConnectionFactoryImpl factory = new ConnectionFactoryImpl("localhost", port, "", "");
-            Connection connection = factory.createConnection();
-            connection.setExceptionListener(new ExceptionListener() {
-                @Override
-                public void onException(JMSException exception) {
-                    LOG.error("Unexpected exception ", exception);
-                    exception.printStackTrace();
-                }
-            });
+            Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "", "");
             connection.start();
             Thread.sleep(500);
             connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             fail("Expected JMSException");
+        } catch (JMSSecurityException ex) {
+            LOG.debug("Failed to authenticate connection with no user / password.");
         } catch (JMSException e) {
             Exception linkedException = e.getLinkedException();
             if (linkedException != null && linkedException instanceof ConnectionClosedException) {
@@ -95,12 +89,13 @@ public class SimpleAMQPAuthTest {
     @Test(timeout = 10000)
     public void testUnknownUser() throws Exception {
         try {
-            ConnectionFactoryImpl factory = new ConnectionFactoryImpl("localhost", port, "admin", "password");
-            Connection connection = factory.createConnection("nosuchuser", "blah");
+            Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "nosuchuser", "blah");
             connection.start();
             Thread.sleep(500);
             connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             fail("Expected JMSException");
+        } catch (JMSSecurityException ex) {
+            LOG.debug("Failed to authenticate connection with no user / password.");
         } catch (JMSException e)  {
             Exception linkedException = e.getLinkedException();
             if (linkedException != null && linkedException instanceof ConnectionClosedException) {
@@ -116,12 +111,13 @@ public class SimpleAMQPAuthTest {
     @Test(timeout = 10000)
     public void testKnownUserWrongPassword() throws Exception {
         try {
-            ConnectionFactoryImpl factory = new ConnectionFactoryImpl("localhost", port, "admin", "password");
-            Connection connection = factory.createConnection("user", "wrongPassword");
+            Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "user", "wrongPassword");
             connection.start();
             Thread.sleep(500);
             connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             fail("Expected JMSException");
+        } catch (JMSSecurityException ex) {
+            LOG.debug("Failed to authenticate connection with no user / password.");
         } catch (JMSException e) {
             Exception linkedException = e.getLinkedException();
             if (linkedException != null && linkedException instanceof ConnectionClosedException) {
@@ -136,10 +132,9 @@ public class SimpleAMQPAuthTest {
 
     @Test(timeout = 30000)
     public void testSendReceive() throws Exception {
-        ConnectionFactoryImpl factory = new ConnectionFactoryImpl("localhost", port, "admin", "password");
-        Connection connection = factory.createConnection("user", "userPassword");
+        Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "user", "userPassword");
         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        QueueImpl queue = new QueueImpl("queue://txqueue");
+        Queue queue = session.createQueue("txQueue");
         MessageProducer p = session.createProducer(queue);
         TextMessage message = null;
         message = session.createTextMessage();
@@ -170,7 +165,7 @@ public class SimpleAMQPAuthTest {
     public void startBroker() throws Exception {
         brokerService = createBroker();
         brokerService.start();
-        port = brokerService.getTransportConnectorByName("amqp").getPublishableConnectURI().getPort();
+        amqpURI = brokerService.getTransportConnectorByName("amqp").getPublishableConnectURI();
         brokerService.waitUntilStarted();
     }
 }

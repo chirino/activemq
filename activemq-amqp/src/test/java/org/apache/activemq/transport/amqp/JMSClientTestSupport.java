@@ -16,6 +16,7 @@
  */
 package org.apache.activemq.transport.amqp;
 
+import java.net.URI;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -23,11 +24,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import javax.jms.Connection;
-import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
 
-import org.apache.activemq.spring.SpringSslContext;
-import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
 import org.junit.After;
 
 public class JMSClientTestSupport extends AmqpTestSupport {
@@ -81,52 +79,26 @@ public class JMSClientTestSupport extends AmqpTestSupport {
     /**
      * Can be overridden in subclasses to test against a different transport suchs as NIO.
      *
-     * @return the port to connect to on the Broker.
+     * @return the URI to connect to on the Broker for AMQP.
      */
-    protected int getBrokerPort() {
-        return port;
+    protected URI getBrokerURI() {
+        return amqpURI;
     }
 
     protected Connection createConnection() throws JMSException {
-        return createConnection(name.toString(), false, false);
+        return createConnection(name.toString(), false);
     }
 
     protected Connection createConnection(boolean syncPublish) throws JMSException {
-        return createConnection(name.toString(), syncPublish, false);
+        return createConnection(name.toString(), syncPublish);
     }
 
     protected Connection createConnection(String clientId) throws JMSException {
-        return createConnection(clientId, false, false);
+        return createConnection(clientId, false);
     }
 
-    protected Connection createConnection(String clientId, boolean syncPublish, boolean useSsl) throws JMSException {
-
-        int brokerPort = getBrokerPort();
-        LOG.debug("Creating connection on port {}", brokerPort);
-        final ConnectionFactoryImpl factory = new ConnectionFactoryImpl("localhost", brokerPort, "admin", "password", null, useSsl);
-
-        if (useSsl) {
-            SpringSslContext context = (SpringSslContext) brokerService.getSslContext();
-            factory.setKeyStorePath(context.getKeyStore());
-            factory.setKeyStorePassword("password");
-            factory.setTrustStorePath(context.getTrustStore());
-            factory.setTrustStorePassword("password");
-        }
-
-        factory.setSyncPublish(syncPublish);
-        factory.setTopicPrefix("topic://");
-        factory.setQueuePrefix("queue://");
-
-        final Connection connection = factory.createConnection();
-        if (clientId != null && !clientId.isEmpty()) {
-            connection.setClientID(clientId);
-        }
-        connection.setExceptionListener(new ExceptionListener() {
-            @Override
-            public void onException(JMSException exception) {
-                exception.printStackTrace();
-            }
-        });
+    protected Connection createConnection(String clientId, boolean syncPublish) throws JMSException {
+        Connection connection = JMSClientContext.INSTANCE.createConnection(getBrokerURI(), "admin", "password", clientId, syncPublish);
         connection.start();
         return connection;
     }

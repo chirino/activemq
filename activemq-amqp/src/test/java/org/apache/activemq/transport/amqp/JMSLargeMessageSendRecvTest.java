@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.transport.amqp.bugs;
+package org.apache.activemq.transport.amqp;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import javax.jms.Connection;
-import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
@@ -30,20 +29,18 @@ import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 
-import org.apache.activemq.transport.amqp.AmqpTestSupport;
-import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class AMQ4914Test extends AmqpTestSupport {
+public class JMSLargeMessageSendRecvTest extends AmqpTestSupport {
 
     @Rule
     public TestName testName = new TestName();
 
-    protected static final Logger LOG = LoggerFactory.getLogger(AMQ4914Test.class);
+    protected static final Logger LOG = LoggerFactory.getLogger(JMSLargeMessageSendRecvTest.class);
 
     private String createLargeString(int sizeInBytes) {
         byte[] base = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
@@ -80,8 +77,7 @@ public class AMQ4914Test extends AmqpTestSupport {
         String payload = createLargeString(expectedSize);
         assertEquals(expectedSize, payload.getBytes().length);
 
-        Connection connection = createAMQPConnection(port, false);
-
+        Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI);
         long startTime = System.currentTimeMillis();
         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
         Queue queue = session.createQueue(testName.getMethodName());
@@ -107,20 +103,5 @@ public class AMQ4914Test extends AmqpTestSupport {
         assertEquals(expectedSize, receivedText.getBytes().length);
         assertEquals(payload, receivedText);
         connection.close();
-    }
-
-    private Connection createAMQPConnection(int testPort, boolean useSSL) throws JMSException {
-        LOG.debug("In createConnection using port {} ssl? {}", testPort, useSSL);
-        final ConnectionFactoryImpl connectionFactory = new ConnectionFactoryImpl("localhost", testPort, "admin", "password", null, useSSL);
-        connectionFactory.setSyncPublish(true);
-        final Connection connection = connectionFactory.createConnection();
-        connection.setExceptionListener(new ExceptionListener() {
-            @Override
-            public void onException(JMSException exception) {
-                exception.printStackTrace();
-            }
-        });
-        connection.start();
-        return connection;
     }
 }
