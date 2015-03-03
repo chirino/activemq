@@ -378,15 +378,6 @@ public class TopicRegion extends AbstractRegion {
         return inactiveDestinations;
     }
 
-    public DurableTopicSubscription lookupSubscription(String subscriptionName, String clientId) {
-        SubscriptionKey key = new SubscriptionKey(clientId, subscriptionName);
-        if (durableSubscriptions.containsKey(key)) {
-            return durableSubscriptions.get(key);
-        }
-
-        return null;
-    }
-
     public boolean isKeepDurableSubsActive() {
         return keepDurableSubsActive;
     }

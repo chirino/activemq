@@ -30,12 +30,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.jms.Destination;
 import javax.jms.InvalidClientIDException;
+import javax.jms.InvalidDestinationException;
 import javax.jms.InvalidSelectorException;
 
 import org.apache.activemq.broker.BrokerService;
-import org.apache.activemq.broker.region.DurableTopicSubscription;
-import org.apache.activemq.broker.region.RegionBroker;
-import org.apache.activemq.broker.region.TopicRegion;
 import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.command.ActiveMQMessage;
 import org.apache.activemq.command.ActiveMQTempQueue;
@@ -87,7 +85,6 @@ import org.apache.qpid.proton.amqp.messaging.Rejected;
 import org.apache.qpid.proton.amqp.messaging.Released;
 import org.apache.qpid.proton.amqp.messaging.Target;
 import org.apache.qpid.proton.amqp.messaging.TerminusDurability;
-import org.apache.qpid.proton.amqp.messaging.TerminusExpiryPolicy;
 import org.apache.qpid.proton.amqp.transaction.Coordinator;
 import org.apache.qpid.proton.amqp.transaction.Declare;
 import org.apache.qpid.proton.amqp.transaction.Declared;
@@ -130,6 +127,7 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
     private static final Symbol COPY = Symbol.getSymbol("copy");
     private static final Symbol JMS_SELECTOR = Symbol.valueOf("jms-selector");
     private static final Symbol NO_LOCAL = Symbol.valueOf("no-local");
+    private static final Symbol DURABLE_SUBSCRIPTION_ENDED = Symbol.getSymbol("DURABLE_SUBSCRIPTION_ENDED");
 
     private final AmqpTransport amqpTransport;
     private final AmqpWireFormat amqpWireFormat;
@@ -335,13 +333,9 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
                             processSessionEvent(event.getSession());
                             break;
                         case LINK_REMOTE_OPEN:
-                            processLinkOpen(event.getLink());
-                            break;
-                        case LINK_REMOTE_DETACH:
-                            processLinkDetach(event.getLink());
-                            break;
                         case LINK_REMOTE_CLOSE:
-                            processLinkClose(event.getLink());
+                        case LINK_REMOTE_DETACH:
+                            processLinkEvent(event.getLink());
                             break;
                         case LINK_FLOW:
                             processLinkFlow(event.getLink());
@@ -393,26 +387,18 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
         }
     }
 
-    protected void processLinkOpen(Link link) throws Exception {
-        onLinkOpen(link);
-    }
-
-    protected void processLinkDetach(Link link) throws Exception {
-        AmqpDeliveryListener context = (AmqpDeliveryListener) link.getContext();
-        if (context != null) {
-            context.onDetach();
+    protected void processLinkEvent(Link link) throws Exception {
+        EndpointState remoteState = link.getRemoteState();
+        if (remoteState == EndpointState.ACTIVE) {
+            onLinkOpen(link);
+        } else if (remoteState == EndpointState.CLOSED) {
+            AmqpDeliveryListener context = (AmqpDeliveryListener) link.getContext();
+            if (context != null) {
+                context.onClose();
+            }
+            link.close();
+            link.free();
         }
-        link.detach();
-        link.free();
-    }
-
-    protected void processLinkClose(Link link) throws Exception {
-        AmqpDeliveryListener context = (AmqpDeliveryListener) link.getContext();
-        if (context != null) {
-            context.onClose();
-        }
-        link.close();
-        link.free();
     }
 
     protected void processSessionEvent(Session session) throws Exception {
@@ -515,9 +501,6 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
     static abstract class AmqpDeliveryListener {
 
         abstract public void onDelivery(Delivery delivery) throws Exception;
-
-        public void onDetach() throws Exception {
-        }
 
         public void onClose() throws Exception {
         }
@@ -688,11 +671,6 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
             this.producerId = producerId;
             this.destination = destination;
             this.anonymous = anonymous;
-        }
-
-        @Override
-        public String toString() {
-            return "ProducerContext { producerId = " + producerId + ", destination = " + destination + " }";
         }
 
         @Override
@@ -1049,29 +1027,6 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
         }
 
         @Override
-        public String toString() {
-            return "ConsumerContext { " + info + " }";
-        }
-
-        @Override
-        public void onDetach() throws Exception {
-            if (!closed) {
-                closed = true;
-                sender.setContext(null);
-                subscriptionsByConsumerId.remove(consumerId);
-
-                AmqpSessionContext session = (AmqpSessionContext) sender.getSession().getContext();
-                if (session != null) {
-                    session.consumers.remove(info.getConsumerId());
-                }
-
-                RemoveInfo removeCommand = new RemoveInfo(consumerId);
-                removeCommand.setLastDeliveredSequenceId(lastDeliveredSequenceId);
-                sendToActiveMQ(removeCommand, null);
-            }
-        }
-
-        @Override
         public void onClose() throws Exception {
             if (!closed) {
                 closed = true;
@@ -1086,15 +1041,6 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
                 RemoveInfo removeCommand = new RemoveInfo(consumerId);
                 removeCommand.setLastDeliveredSequenceId(lastDeliveredSequenceId);
                 sendToActiveMQ(removeCommand, null);
-
-                if (info.isDurable()) {
-                    RemoveSubscriptionInfo rsi = new RemoveSubscriptionInfo();
-                    rsi.setConnectionId(connectionId);
-                    rsi.setSubscriptionName(sender.getName());
-                    rsi.setClientId(connectionInfo.getClientId());
-
-                    sendToActiveMQ(rsi, null);
-                }
             }
         }
 
@@ -1393,35 +1339,57 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
                 }
             }
 
-            ActiveMQDestination destination;
+            ActiveMQDestination dest;
             if (source == null) {
-                // Attempt to recover previous subscription
-                destination = lookupSubscription(sender.getName());
 
-                if (destination != null) {
-                    source = new org.apache.qpid.proton.amqp.messaging.Source();
-                    source.setAddress(destination.getQualifiedName());
-                    source.setDurable(TerminusDurability.UNSETTLED_STATE);
-                    source.setExpiryPolicy(TerminusExpiryPolicy.NEVER);
-                    sender.setSource(source);
-                } else {
-                    consumerContext.closed = true;
-                    sender.setSource(null);
-                    sender.setCondition(new ErrorCondition(AmqpError.NOT_FOUND, "Unknown subscription link: " + sender.getName()));
-                    sender.close();
-                    sender.free();
-                    pumpProtonToSocket();
-                    return;
-                }
+                source = new org.apache.qpid.proton.amqp.messaging.Source();
+                source.setAddress("");
+                source.setCapabilities(DURABLE_SUBSCRIPTION_ENDED);
+                sender.setSource(source);
+
+                // Looks like durable sub removal.
+                RemoveSubscriptionInfo rsi = new RemoveSubscriptionInfo();
+                rsi.setConnectionId(connectionId);
+                rsi.setSubscriptionName(sender.getName());
+                rsi.setClientId(connectionInfo.getClientId());
+
+                consumerContext.closed = true;
+                sendToActiveMQ(rsi, new ResponseHandler() {
+                    @Override
+                    public void onResponse(IAmqpProtocolConverter converter, Response response) throws IOException {
+                        if (response.isException()) {
+                            sender.setSource(null);
+                            Throwable exception = ((ExceptionResponse) response).getException();
+                            if (exception instanceof SecurityException) {
+                                sender.setCondition(new ErrorCondition(AmqpError.UNAUTHORIZED_ACCESS, exception.getMessage()));
+                            } else if (exception instanceof InvalidDestinationException){
+                                sender.setCondition(new ErrorCondition(AmqpError.NOT_FOUND, exception.getMessage()));
+                            } else {
+                                sender.setCondition(new ErrorCondition(AmqpError.INTERNAL_ERROR, exception.getMessage()));
+                            }
+                            sender.close();
+                            sender.free();
+                        } else {
+                            sender.open();
+                        }
+                        pumpProtonToSocket();
+                    }
+                });
+                return;
+            } else if (contains(source.getCapabilities(), DURABLE_SUBSCRIPTION_ENDED)) {
+                consumerContext.closed = true;
+                sender.close();
+                pumpProtonToSocket();
+                return;
             } else if (source.getDynamic()) {
                 // lets create a temp dest.
-                destination = createTempQueue();
+                dest = createTempQueue();
                 source = new org.apache.qpid.proton.amqp.messaging.Source();
-                source.setAddress(destination.getQualifiedName());
+                source.setAddress(dest.getQualifiedName());
                 source.setDynamic(true);
                 sender.setSource(source);
             } else {
-                destination = createDestination(source);
+                dest = createDestination(source);
             }
 
             subscriptionsByConsumerId.put(id, consumerContext);
@@ -1429,8 +1397,8 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
             consumerContext.info = consumerInfo;
             consumerInfo.setSelector(selector);
             consumerInfo.setNoRangeAcks(true);
-            consumerInfo.setDestination(destination);
-            consumerContext.destination = destination;
+            consumerInfo.setDestination(dest);
+            consumerContext.destination = dest;
             int senderCredit = sender.getRemoteCredit();
             if (prefetch != 0) {
                 // use the value configured on the transport connector
@@ -1451,11 +1419,11 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
             }
             consumerContext.credit = senderCredit;
             consumerInfo.setDispatchAsync(true);
-            if (source.getDistributionMode() == COPY && destination.isQueue()) {
+            if (source.getDistributionMode() == COPY && dest.isQueue()) {
                 consumerInfo.setBrowser(true);
             }
             if ((TerminusDurability.UNSETTLED_STATE.equals(source.getDurable()) ||
-                 TerminusDurability.CONFIGURATION.equals(source.getDurable())) && destination.isTopic()) {
+                 TerminusDurability.CONFIGURATION.equals(source.getDurable())) && dest.isTopic()) {
                 consumerInfo.setSubscriptionName(sender.getName());
             }
 
@@ -1498,23 +1466,15 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
         }
     }
 
-    private ActiveMQDestination lookupSubscription(String subscriptionName) throws AmqpProtocolException {
-        ActiveMQDestination result = null;
-        RegionBroker regionBroker;
-
-        try {
-            regionBroker = (RegionBroker) brokerService.getBroker().getAdaptor(RegionBroker.class);
-        } catch (Exception e) {
-            throw new AmqpProtocolException("Error finding subscription: " + subscriptionName + ": " + e.getMessage(), false, e);
+    static private boolean contains(Symbol[] haystack, Symbol needle) {
+        if (haystack != null) {
+            for (Symbol capability : haystack) {
+                if (capability == needle) {
+                    return true;
+                }
+            }
         }
-
-        final TopicRegion topicRegion = (TopicRegion) regionBroker.getTopicRegion();
-        DurableTopicSubscription subscription = topicRegion.lookupSubscription(subscriptionName, connectionInfo.getClientId());
-        if (subscription != null) {
-            result = subscription.getActiveMQDestination();
-        }
-
-        return result;
+        return false;
     }
 
     private ActiveMQDestination createTempQueue() {
