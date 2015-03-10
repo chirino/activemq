@@ -70,6 +70,7 @@ import org.apache.activemq.transport.amqp.message.EncodedMessage;
 import org.apache.activemq.transport.amqp.message.InboundTransformer;
 import org.apache.activemq.transport.amqp.message.JMSMappingInboundTransformer;
 import org.apache.activemq.transport.amqp.message.OutboundTransformer;
+import org.apache.activemq.transport.amqp.message.ActiveMQJMSVendor;
 import org.apache.activemq.util.IOExceptionSupport;
 import org.apache.activemq.util.IdGenerator;
 import org.apache.activemq.util.LongSequenceGenerator;

@@ -69,8 +69,6 @@ public class JMSClientSimpleAuthTest {
         try {
             Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "", "");
             connection.start();
-            Thread.sleep(500);
-            connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             fail("Expected JMSException");
         } catch (JMSSecurityException ex) {
             LOG.debug("Failed to authenticate connection with no user / password.");
@@ -91,8 +89,6 @@ public class JMSClientSimpleAuthTest {
         try {
             Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "nosuchuser", "blah");
             connection.start();
-            Thread.sleep(500);
-            connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             fail("Expected JMSException");
         } catch (JMSSecurityException ex) {
             LOG.debug("Failed to authenticate connection with no user / password.");
@@ -113,8 +109,6 @@ public class JMSClientSimpleAuthTest {
         try {
             Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "user", "wrongPassword");
             connection.start();
-            Thread.sleep(500);
-            connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             fail("Expected JMSException");
         } catch (JMSSecurityException ex) {
             LOG.debug("Failed to authenticate connection with no user / password.");
@@ -131,10 +125,37 @@ public class JMSClientSimpleAuthTest {
     }
 
     @Test(timeout = 30000)
+    public void testRepeatedWrongPasswordAttempts() throws Exception {
+        for (int i = 0; i < 25; ++i) {
+            Connection connection = null;
+            try {
+                connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "user", "wrongPassword");
+                connection.start();
+                fail("Expected JMSException");
+            } catch (JMSSecurityException ex) {
+                LOG.debug("Failed to authenticate connection with no user / password.");
+            } catch (JMSException e) {
+                Exception linkedException = e.getLinkedException();
+                if (linkedException != null && linkedException instanceof ConnectionClosedException) {
+                    ConnectionClosedException cce = (ConnectionClosedException) linkedException;
+                    assertEquals("Error{condition=unauthorized-access,description=User name [user] or password is invalid.}", cce.getRemoteError().toString());
+                } else {
+                    LOG.error("Unexpected Exception", e);
+                    fail("Unexpected exception: " + e.getMessage());
+                }
+            } finally {
+                if (connection != null) {
+                    connection.close();
+                }
+            }
+        }
+    }
+
+    @Test(timeout = 30000)
     public void testSendReceive() throws Exception {
         Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "user", "userPassword");
         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        Queue queue = session.createQueue("txQueue");
+        Queue queue = session.createQueue("USERS.txQueue");
         MessageProducer p = session.createProducer(queue);
         TextMessage message = null;
         message = session.createTextMessage();
@@ -153,6 +174,42 @@ public class JMSClientSimpleAuthTest {
         connection.close();
     }
 
+    @Test(timeout = 30000)
+    public void testCreateTemporaryQueueNotAuthorized() throws JMSException {
+        Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "user", "userPassword");
+        Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+
+        try {
+            session.createTemporaryQueue();
+        } catch (JMSSecurityException jmsse) {
+        } catch (JMSException jmse) {
+            LOG.info("Client should have thrown a JMSSecurityException but only threw JMSException");
+        }
+
+        // Should not be fatal
+        assertNotNull(connection.createSession(false, Session.AUTO_ACKNOWLEDGE));
+
+        session.close();
+    }
+
+    @Test(timeout = 30000)
+    public void testCreateTemporaryTopicNotAuthorized() throws JMSException {
+        Connection connection = JMSClientContext.INSTANCE.createConnection(amqpURI, "user", "userPassword");
+        Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+
+        try {
+            session.createTemporaryTopic();
+        } catch (JMSSecurityException jmsse) {
+        } catch (JMSException jmse) {
+            LOG.info("Client should have thrown a JMSSecurityException but only threw JMSException");
+        }
+
+        // Should not be fatal
+        assertNotNull(connection.createSession(false, Session.AUTO_ACKNOWLEDGE));
+
+        session.close();
+    }
+
     protected BrokerService createBroker() throws Exception {
         return createBroker(SIMPLE_AUTH_AMQP_BROKER_XML);
     }
@@ -169,4 +226,3 @@ public class JMSClientSimpleAuthTest {
         brokerService.waitUntilStarted();
     }
 }
-
