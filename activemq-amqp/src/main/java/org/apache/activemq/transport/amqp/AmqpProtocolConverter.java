@@ -1536,7 +1536,6 @@ class AmqpProtocolConverter implements IAmqpProtocolConverter {
         return condition;
     }
 
-    @Override
     public void setPrefetch(int prefetch) {
         this.prefetch = prefetch;
     }
