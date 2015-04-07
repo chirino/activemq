@@ -46,6 +46,7 @@ import org.apache.activemq.broker.jmx.TopicViewMBean;
 import org.apache.activemq.openwire.OpenWireFormat;
 import org.apache.activemq.spring.SpringSslContext;
 import org.apache.activemq.store.kahadb.KahaDBStore;
+import org.apache.activemq.transport.amqp.protocol.AmqpConnection;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -106,12 +107,14 @@ public class AmqpTestSupport {
         brokerService.setUseJmx(true);
         brokerService.getManagementContext().setCreateConnector(false);
 
+        performAdditionalConfiguration(brokerService);
+
         SSLContext ctx = SSLContext.getInstance("TLS");
         ctx.init(new KeyManager[0], new TrustManager[]{new DefaultTrustManager()}, new SecureRandom());
         SSLContext.setDefault(ctx);
 
         // Setup SSL context...
-        final File classesDir = new File(AmqpProtocolConverter.class.getProtectionDomain().getCodeSource().getLocation().getFile());
+        final File classesDir = new File(AmqpConnection.class.getProtectionDomain().getCodeSource().getLocation().getFile());
         File keystore = new File(classesDir, "../../src/test/resources/keystore");
         final SpringSslContext sslContext = new SpringSslContext();
         sslContext.setKeyStore(keystore.getCanonicalPath());
@@ -129,6 +132,10 @@ public class AmqpTestSupport {
         System.setProperty("javax.net.ssl.keyStoreType", "jks");
 
         addTranportConnectors();
+    }
+
+    protected void performAdditionalConfiguration(BrokerService brokerService) throws Exception {
+
     }
 
     protected void addTranportConnectors() throws Exception {
