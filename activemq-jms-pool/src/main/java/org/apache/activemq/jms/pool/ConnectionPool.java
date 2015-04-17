@@ -29,13 +29,9 @@ import javax.jms.Session;
 import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
 
-import org.apache.commons.pool2.BasePooledObjectFactory;
-import org.apache.commons.pool2.KeyedObjectPool;
-import org.apache.commons.pool2.KeyedPooledObjectFactory;
-import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.impl.DefaultPooledObject;
-import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
-import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.apache.commons.pool.KeyedPoolableObjectFactory;
+import org.apache.commons.pool.impl.GenericKeyedObjectPool;
+import org.apache.commons.pool.impl.GenericObjectPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,29 +67,29 @@ public class ConnectionPool implements ExceptionListener {
 
         // Create our internal Pool of session instances.
         this.sessionPool = new GenericKeyedObjectPool<SessionKey, SessionHolder>(
-            new KeyedPooledObjectFactory<SessionKey, SessionHolder>() {
-                @Override
-                public PooledObject<SessionHolder> makeObject(SessionKey sessionKey) throws Exception {
+            new KeyedPoolableObjectFactory<SessionKey, SessionHolder>() {
 
-                    return new DefaultPooledObject<SessionHolder>(new SessionHolder(makeSession(sessionKey)));
+                @Override
+                public void activateObject(SessionKey key, SessionHolder session) throws Exception {
                 }
 
                 @Override
-                public void destroyObject(SessionKey sessionKey, PooledObject<SessionHolder> pooledObject) throws Exception {
-                    ((SessionHolder)pooledObject.getObject()).close();
+                public void destroyObject(SessionKey key, SessionHolder session) throws Exception {
+                    session.close();
                 }
 
                 @Override
-                public boolean validateObject(SessionKey sessionKey, PooledObject<SessionHolder> pooledObject) {
+                public SessionHolder makeObject(SessionKey key) throws Exception {
+                    return new SessionHolder(makeSession(key));
+                }
+
+                @Override
+                public void passivateObject(SessionKey key, SessionHolder session) throws Exception {
+                }
+
+                @Override
+                public boolean validateObject(SessionKey key, SessionHolder session) {
                     return true;
-                }
-
-                @Override
-                public void activateObject(SessionKey sessionKey, PooledObject<SessionHolder> pooledObject) throws Exception {
-                }
-
-                @Override
-                public void passivateObject(SessionKey sessionKey, PooledObject<SessionHolder> pooledObject) throws Exception {
                 }
             }
         );
@@ -262,11 +258,11 @@ public class ConnectionPool implements ExceptionListener {
     }
 
     public int getMaximumActiveSessionPerConnection() {
-        return this.sessionPool.getMaxTotal();
+        return this.sessionPool.getMaxActive();
     }
 
     public void setMaximumActiveSessionPerConnection(int maximumActiveSessionPerConnection) {
-        this.sessionPool.setMaxTotal(maximumActiveSessionPerConnection);
+        this.sessionPool.setMaxActive(maximumActiveSessionPerConnection);
     }
 
     public boolean isUseAnonymousProducers() {
@@ -308,11 +304,12 @@ public class ConnectionPool implements ExceptionListener {
      * 		Indicates whether blocking should be used to wait for more space to create a session.
      */
     public void setBlockIfSessionPoolIsFull(boolean block) {
-        this.sessionPool.setBlockWhenExhausted(block);
+        this.sessionPool.setWhenExhaustedAction(
+                (block ? GenericObjectPool.WHEN_EXHAUSTED_BLOCK : GenericObjectPool.WHEN_EXHAUSTED_FAIL));
     }
 
     public boolean isBlockIfSessionPoolIsFull() {
-        return this.sessionPool.getBlockWhenExhausted();
+        return this.sessionPool.getWhenExhaustedAction() == GenericObjectPool.WHEN_EXHAUSTED_BLOCK;
     }
 
     /**
@@ -322,7 +319,7 @@ public class ConnectionPool implements ExceptionListener {
      * @see #setBlockIfSessionPoolIsFull(boolean)
      */
     public long getBlockIfSessionPoolIsFullTimeout() {
-        return this.sessionPool.getMaxWaitMillis();
+        return this.sessionPool.getMaxWait();
     }
 
     /**
@@ -340,7 +337,7 @@ public class ConnectionPool implements ExceptionListener {
      *                                        then use this setting to configure how long to block before retry
      */
     public void setBlockIfSessionPoolIsFullTimeout(long blockIfSessionPoolIsFullTimeout) {
-        this.sessionPool.setMaxWaitMillis(blockIfSessionPoolIsFullTimeout);
+        this.sessionPool.setMaxWait(blockIfSessionPoolIsFullTimeout);
     }
 
     /**
