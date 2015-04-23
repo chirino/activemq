@@ -228,8 +228,8 @@
       <optional>true</optional>
     </dependency>
     <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-pool2</artifactId>
+      <groupId>commons-pool</groupId>
+      <artifactId>commons-pool</artifactId>
       <optional>true</optional>
     </dependency>
     <dependency>
