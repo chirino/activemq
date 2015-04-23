@@ -262,11 +262,11 @@ public class ConnectionPool implements ExceptionListener {
     }
 
     public int getMaximumActiveSessionPerConnection() {
-        return this.sessionPool.getMaxTotalPerKey();
+        return this.sessionPool.getMaxTotal();
     }
 
     public void setMaximumActiveSessionPerConnection(int maximumActiveSessionPerConnection) {
-        this.sessionPool.setMaxTotalPerKey(maximumActiveSessionPerConnection);
+        this.sessionPool.setMaxTotal(maximumActiveSessionPerConnection);
     }
 
     public boolean isUseAnonymousProducers() {
