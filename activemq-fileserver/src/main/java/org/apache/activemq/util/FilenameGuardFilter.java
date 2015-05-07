@@ -17,6 +17,7 @@
 package org.apache.activemq.util;
 
 import java.io.IOException;
+import java.nio.file.FileSystems;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -61,6 +62,7 @@ public class FilenameGuardFilter implements Filter {
 
         private String guard(String filename) {
             String guarded = filename.replace(":", "_");
+            guarded = FileSystems.getDefault().getPath(guarded).normalize().toString();
             if (LOG.isDebugEnabled()) {
                 LOG.debug("guarded " + filename + " to " + guarded);
             }
