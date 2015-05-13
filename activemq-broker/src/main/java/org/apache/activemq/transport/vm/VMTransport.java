@@ -92,12 +92,36 @@ public class VMTransport implements Transport, Task {
                 throw new TransportDisposedIOException("Peer (" + peer.toString() + ") disposed.");
             }
 
-            if (peer.async || !peer.started.get()) {
+            if (peer.async) {
                 peer.getMessageQueue().put(command);
                 peer.wakeup();
                 return;
             }
 
+            if (!peer.started.get()) {
+                LinkedBlockingQueue<Object> pending = peer.getMessageQueue();
+                int sleepTimeMillis;
+                boolean accepted = false;
+                do {
+                    sleepTimeMillis = 0;
+                    // the pending queue is drained on start so we need to ensure we add before
+                    // the drain commences, otherwise we never get the command dispatched!
+                    synchronized (peer.started) {
+                        if (!peer.started.get()) {
+                            accepted = pending.offer(command);
+                            if (!accepted) {
+                                sleepTimeMillis = 500;
+                            }
+                        }
+                    }
+                    // give start thread a chance if we will loop
+                    TimeUnit.MILLISECONDS.sleep(sleepTimeMillis);
+
+                } while (!accepted && !peer.started.get());
+                if (accepted) {
+                    return;
+                }
+            }
         } catch (InterruptedException e) {
             InterruptedIOException iioe = new InterruptedIOException(e.getMessage());
             iioe.initCause(e);
@@ -257,14 +281,6 @@ public class VMTransport implements Transport, Task {
     @Override
     public void setTransportListener(TransportListener commandListener) {
         this.transportListener = commandListener;
-    }
-
-    public void setMessageQueue(LinkedBlockingQueue<Object> asyncQueue) {
-        synchronized (this) {
-            if (messageQueue == null) {
-                messageQueue = asyncQueue;
-            }
-        }
     }
 
     public LinkedBlockingQueue<Object> getMessageQueue() throws TransportDisposedIOException {
