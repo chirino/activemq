@@ -103,6 +103,7 @@ abstract public class DataSourceServiceSupport extends LockableServiceSupport {
 
     public static void shutdownDefaultDataSource(DataSource dataSource) {
         final EmbeddedDataSource ds =  (EmbeddedDataSource) dataSource;
+        ds.setCreateDatabase("shutdown");
         ds.setShutdownDatabase("shutdown");
         try {
             ds.getConnection();
