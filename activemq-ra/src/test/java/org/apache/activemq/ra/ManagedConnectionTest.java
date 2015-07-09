@@ -16,6 +16,12 @@
  */
 package org.apache.activemq.ra;
 
+import org.apache.activemq.ActiveMQConnection;
+import org.apache.activemq.ActiveMQConnectionFactory;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import javax.jms.MessageProducer;
@@ -28,17 +34,9 @@ import javax.jms.TopicConnectionFactory;
 import javax.resource.ResourceException;
 import javax.resource.spi.ConnectionEvent;
 
-import junit.framework.TestCase;
-import org.apache.activemq.ActiveMQConnection;
-import org.apache.activemq.ActiveMQConnectionFactory;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import static org.junit.Assert.*;
 
-/**
- * 
- */
-public class ManagedConnectionTest extends TestCase {
+public class ManagedConnectionTest {
 
     private static final String DEFAULT_HOST = "vm://localhost?broker.persistent=false";
 
@@ -48,10 +46,8 @@ public class ManagedConnectionTest extends TestCase {
     private ManagedConnectionProxy connection;
     private ActiveMQManagedConnection managedConnection;
 
-    /**
-     * @see junit.framework.TestCase#setUp()
-     */
-    protected void setUp() throws Exception {
+    @Before
+    public void setUp() throws Exception {
 
         managedConnectionFactory = new ActiveMQManagedConnectionFactory();
         managedConnectionFactory.setServerUrl(DEFAULT_HOST);
@@ -78,6 +74,7 @@ public class ManagedConnectionTest extends TestCase {
             false
         };
         connectionManager.addConnectionEventListener(new ConnectionEventListenerAdapter() {
+            @Override
             public void connectionClosed(ConnectionEvent arg0) {
                 test[0] = true;
             }
@@ -86,12 +83,14 @@ public class ManagedConnectionTest extends TestCase {
         assertTrue(test[0]);
     }
 
+    @Test(timeout = 60000)
     public void testLocalTransactionCommittedEvent() throws ResourceException, JMSException {
 
         final boolean test[] = new boolean[] {
             false
         };
         connectionManager.addConnectionEventListener(new ConnectionEventListenerAdapter() {
+            @Override
             public void localTransactionCommitted(ConnectionEvent arg0) {
                 test[0] = true;
             }
@@ -107,12 +106,14 @@ public class ManagedConnectionTest extends TestCase {
 
     }
 
+    @Test(timeout = 60000)
     public void testLocalTransactionRollbackEvent() throws ResourceException, JMSException {
 
         final boolean test[] = new boolean[] {
             false
         };
         connectionManager.addConnectionEventListener(new ConnectionEventListenerAdapter() {
+            @Override
             public void localTransactionRolledback(ConnectionEvent arg0) {
                 test[0] = true;
             }
@@ -125,12 +126,14 @@ public class ManagedConnectionTest extends TestCase {
         assertTrue(test[0]);
     }
 
+    @Test(timeout = 60000)
     public void testLocalTransactionStartedEvent() throws ResourceException, JMSException {
 
         final boolean test[] = new boolean[] {
             false
         };
         connectionManager.addConnectionEventListener(new ConnectionEventListenerAdapter() {
+            @Override
             public void localTransactionStarted(ConnectionEvent arg0) {
                 test[0] = true;
             }
@@ -148,6 +151,7 @@ public class ManagedConnectionTest extends TestCase {
      * A managed connection that has been clean up should throw exceptions when
      * it used.
      */
+    @Test(timeout = 60000)
     public void testCleanup() throws ResourceException, JMSException {
 
         // Do some work and close it...
@@ -155,14 +159,13 @@ public class ManagedConnectionTest extends TestCase {
         doWork(session);
         connection.close();
         try {
-            // This should throw expection
+            // This should throw exception
             doWork(session);
             fail("Using a session after the connection is closed should throw exception.");
         } catch (JMSException e) {
         }
     }
 
-    @Test(timeout = 60000)
     public void testSetClientIdAfterCleanup() throws Exception {
 
         connection.setClientID("test");
@@ -202,7 +205,7 @@ public class ManagedConnectionTest extends TestCase {
         doWork(session1);
         session1.close();
         try {
-            // This should throw expection
+            // This should throw exception
             doWork(session1);
             fail("Using a session after the connection is closed should throw exception.");
         } catch (JMSException e) {
@@ -212,7 +215,7 @@ public class ManagedConnectionTest extends TestCase {
         doWork(session2);
         session2.close();
         try {
-            // This should throw expection
+            // This should throw exception
             doWork(session2);
             fail("Using a session after the connection is closed should throw exception.");
         } catch (JMSException e) {
@@ -221,7 +224,7 @@ public class ManagedConnectionTest extends TestCase {
 
     /**
      * Does some work so that we can test commit/rollback etc.
-     * 
+     *
      * @throws JMSException
      */
     public void doWork(Session session) throws JMSException {
@@ -230,6 +233,7 @@ public class ManagedConnectionTest extends TestCase {
         producer.send(session.createTextMessage("test message."));
     }
 
+    @Test(timeout = 60000)
     public void testImplementsQueueAndTopicConnection() throws Exception {
         QueueConnection qc = ((QueueConnectionFactory)connectionFactory).createQueueConnection();
         assertNotNull(qc);
@@ -237,10 +241,12 @@ public class ManagedConnectionTest extends TestCase {
         assertNotNull(tc);
     }
 
+    @Test(timeout = 60000)
     public void testSelfEquality() {
         assertEquality(managedConnection, managedConnection);
     }
 
+    @Test(timeout = 60000)
     public void testSamePropertiesButNotEqual() throws Exception {
         ManagedConnectionProxy newConnection = (ManagedConnectionProxy)connectionFactory.createConnection();
         assertNonEquality(managedConnection, newConnection.getManagedConnection());
@@ -257,5 +263,4 @@ public class ManagedConnectionTest extends TestCase {
         assertFalse("ActiveMQManagedConnection are equal", rightCon.equals(leftCon));
         assertFalse("HashCodes are equal", leftCon.hashCode() == rightCon.hashCode());
     }
-
 }

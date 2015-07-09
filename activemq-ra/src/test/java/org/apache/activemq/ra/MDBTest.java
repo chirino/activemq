@@ -16,6 +16,12 @@
  */
 package org.apache.activemq.ra;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -52,7 +58,6 @@ import javax.resource.spi.work.WorkManager;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
 
-import org.junit.Test;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.advisory.AdvisorySupport;
 import org.apache.activemq.broker.BrokerService;
@@ -69,53 +74,61 @@ import org.apache.log4j.LogManager;
 import org.apache.log4j.spi.ErrorHandler;
 import org.apache.log4j.spi.Filter;
 import org.apache.log4j.spi.LoggingEvent;
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-
-import static org.junit.Assert.*;
 
 public class MDBTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(MDBTest.class);
 
-    long txGenerator = System.currentTimeMillis();
+    private long txGenerator = System.currentTimeMillis();
+    private AtomicInteger id = new AtomicInteger(0);
 
     private static final class StubBootstrapContext implements BootstrapContext {
+        @Override
         public WorkManager getWorkManager() {
             return new WorkManager() {
+                @Override
                 public void doWork(Work work) throws WorkException {
                     new Thread(work).start();
                 }
 
+                @Override
                 public void doWork(Work work, long arg1, ExecutionContext arg2, WorkListener arg3) throws WorkException {
                     new Thread(work).start();
                 }
 
+                @Override
                 public long startWork(Work work) throws WorkException {
                     new Thread(work).start();
                     return 0;
                 }
 
+                @Override
                 public long startWork(Work work, long arg1, ExecutionContext arg2, WorkListener arg3) throws WorkException {
                     new Thread(work).start();
                     return 0;
                 }
 
+                @Override
                 public void scheduleWork(Work work) throws WorkException {
                     new Thread(work).start();
                 }
 
+                @Override
                 public void scheduleWork(Work work, long arg1, ExecutionContext arg2, WorkListener arg3) throws WorkException {
                     new Thread(work).start();
                 }
             };
         }
 
+        @Override
         public XATerminator getXATerminator() {
             return null;
         }
 
+        @Override
         public Timer createTimer() throws UnavailableException {
             return null;
         }
@@ -126,6 +139,7 @@ public class MDBTest {
         public XAResource xaresource;
         public Xid xid;
 
+        @Override
         public void beforeDelivery(Method method) throws NoSuchMethodException, ResourceException {
             try {
                 if (xid == null) {
@@ -138,6 +152,7 @@ public class MDBTest {
             }
         }
 
+        @Override
         public void afterDelivery() throws ResourceException {
             try {
                 xaresource.end(xid, 0);
@@ -150,17 +165,18 @@ public class MDBTest {
             }
         }
 
+        @Override
         public void release() {
             LOG.info("In release, messageCount: " + messageCount + ", xid:" + xid);
         }
 
+        @Override
         public void onMessage(Message message) {
             messageCount++;
         }
-
     }
 
-    @Test
+    @Test(timeout = 90000)
     public void testDestinationInJndi() throws Exception{
         ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("vm://localhost?broker.persistent=false");
         Connection connection = factory.createConnection();
@@ -177,6 +193,7 @@ public class MDBTest {
         final CountDownLatch messageDelivered = new CountDownLatch(1);
 
         final StubMessageEndpoint endpoint = new StubMessageEndpoint() {
+            @Override
             public void onMessage(Message message) {
                 super.onMessage(message);
                 messageDelivered.countDown();
@@ -191,11 +208,13 @@ public class MDBTest {
         activationSpec.validate();
 
         MessageEndpointFactory messageEndpointFactory = new MessageEndpointFactory() {
+            @Override
             public MessageEndpoint createEndpoint(XAResource resource) throws UnavailableException {
                 endpoint.xaresource = resource;
                 return endpoint;
             }
 
+            @Override
             public boolean isDeliveryTransacted(Method method) throws NoSuchMethodException {
                 return true;
             }
@@ -225,7 +244,7 @@ public class MDBTest {
         adapter.stop();
     }
 
-    @Test
+    @Test(timeout = 90000)
     public void testMessageDelivery() throws Exception {
 
         ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("vm://localhost?broker.persistent=false");
@@ -243,6 +262,7 @@ public class MDBTest {
         final CountDownLatch messageDelivered = new CountDownLatch(1);
 
         final StubMessageEndpoint endpoint = new StubMessageEndpoint() {
+            @Override
             public void onMessage(Message message) {
                 super.onMessage(message);
                 messageDelivered.countDown();
@@ -256,11 +276,13 @@ public class MDBTest {
         activationSpec.validate();
 
         MessageEndpointFactory messageEndpointFactory = new MessageEndpointFactory() {
+            @Override
             public MessageEndpoint createEndpoint(XAResource resource) throws UnavailableException {
                 endpoint.xaresource = resource;
                 return endpoint;
             }
 
+            @Override
             public boolean isDeliveryTransacted(Method method) throws NoSuchMethodException {
                 return true;
             }
@@ -288,7 +310,6 @@ public class MDBTest {
         // Shut the Endpoint down.
         adapter.endpointDeactivation(messageEndpointFactory, activationSpec);
         adapter.stop();
-
     }
 
     @Test
@@ -366,7 +387,7 @@ public class MDBTest {
     }
 
     //https://issues.apache.org/jira/browse/AMQ-5811
-    @Test
+    @Test(timeout = 90000)
     public void testAsyncStop() throws Exception {
         for (int repeat = 0; repeat < 10; repeat++) {
             ActiveMQResourceAdapter adapter = new ActiveMQResourceAdapter();
@@ -382,6 +403,7 @@ public class MDBTest {
 
                 final StubMessageEndpoint endpoint = new StubMessageEndpoint()
                 {
+                    @Override
                     public void onMessage(Message message)
                     {
                         super.onMessage(message);
@@ -395,11 +417,13 @@ public class MDBTest {
                 activationSpecs[i].validate();
 
                 endpointFactories[i] = new MessageEndpointFactory() {
+                    @Override
                     public MessageEndpoint createEndpoint(XAResource resource) throws UnavailableException {
                         endpoint.xaresource = resource;
                         return endpoint;
                     }
 
+                    @Override
                     public boolean isDeliveryTransacted(Method method) throws NoSuchMethodException {
                         return true;
                     }
@@ -430,6 +454,7 @@ public class MDBTest {
             final ActiveMQActivationSpec activationSpec = activationSpecs[i];
 
             threads[i] = new Thread() {
+                @Override
                 public void run() {
                     adapter.endpointDeactivation(endpointFactory, activationSpec);
                 }
@@ -438,7 +463,7 @@ public class MDBTest {
         return threads;
     }
 
-    @Test
+    @Test(timeout = 90000)
     public void testErrorOnNoMessageDeliveryBrokerZeroPrefetchConfig() throws Exception {
 
         final BrokerService brokerService = new BrokerService();
@@ -512,8 +537,8 @@ public class MDBTest {
                 return false;
             }
         };
-        LogManager.getRootLogger().addAppender(testAppender);
 
+        LogManager.getRootLogger().addAppender(testAppender);
 
         ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(brokerUrl);
         Connection connection = factory.createConnection();
@@ -529,6 +554,7 @@ public class MDBTest {
         final CountDownLatch messageDelivered = new CountDownLatch(1);
 
         final StubMessageEndpoint endpoint = new StubMessageEndpoint() {
+            @Override
             public void onMessage(Message message) {
                 super.onMessage(message);
                 messageDelivered.countDown();
@@ -542,11 +568,13 @@ public class MDBTest {
         activationSpec.validate();
 
         MessageEndpointFactory messageEndpointFactory = new MessageEndpointFactory() {
+            @Override
             public MessageEndpoint createEndpoint(XAResource resource) throws UnavailableException {
                 endpoint.xaresource = resource;
                 return endpoint;
             }
 
+            @Override
             public boolean isDeliveryTransacted(Method method) throws NoSuchMethodException {
                 return true;
             }
@@ -598,6 +626,7 @@ public class MDBTest {
         final AtomicBoolean failed = new AtomicBoolean(false);
 
         final StubMessageEndpoint endpoint = new StubMessageEndpoint() {
+            @Override
             public void onMessage(Message message) {
                 super.onMessage(message);
                 try {
@@ -618,7 +647,8 @@ public class MDBTest {
                 } catch (InterruptedException ignored) {
                 }
             };
-            
+
+            @Override
             public void afterDelivery() throws ResourceException {
                 try {
                     if (!messageDelivered.await(1, TimeUnit.MILLISECONDS)) {
@@ -643,11 +673,13 @@ public class MDBTest {
         activationSpec.validate();
 
         MessageEndpointFactory messageEndpointFactory = new MessageEndpointFactory() {
+            @Override
             public MessageEndpoint createEndpoint(XAResource resource) throws UnavailableException {
                 endpoint.xaresource = resource;
                 return endpoint;
             }
 
+            @Override
             public boolean isDeliveryTransacted(Method method) throws NoSuchMethodException {
                 return true;
             }
@@ -675,10 +707,9 @@ public class MDBTest {
         // Shut the Endpoint down.
         adapter.endpointDeactivation(messageEndpointFactory, activationSpec);
         adapter.stop();
-
     }
 
-    @Test
+    @Test(timeout = 90000)
     public void testOrderOfMessageExceptionReDelivery() throws Exception {
 
         ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("vm://localhost?broker.persistent=false");
@@ -692,6 +723,7 @@ public class MDBTest {
         final List<Integer> orderedReceipt = new ArrayList<Integer>();
 
         final StubMessageEndpoint endpoint = new StubMessageEndpoint() {
+            @Override
             public void onMessage(Message message) {
                 super.onMessage(message);
                 if (messageCount == 2) {
@@ -704,6 +736,7 @@ public class MDBTest {
                 }
             };
 
+            @Override
             public void afterDelivery() throws ResourceException {
                 try {
                     if (messageCount == 2) {
@@ -732,11 +765,13 @@ public class MDBTest {
         activationSpec.validate();
 
         MessageEndpointFactory messageEndpointFactory = new MessageEndpointFactory() {
+            @Override
             public MessageEndpoint createEndpoint(XAResource resource) throws UnavailableException {
                 endpoint.xaresource = resource;
                 return endpoint;
             }
 
+            @Override
             public boolean isDeliveryTransacted(Method method) throws NoSuchMethodException {
                 return true;
             }
@@ -775,10 +810,9 @@ public class MDBTest {
         // Shut the Endpoint down.
         adapter.endpointDeactivation(messageEndpointFactory, activationSpec);
         adapter.stop();
-
     }
 
-    @Test
+    @Test(timeout = 90000)
     public void testXaTimeoutRedelivery() throws Exception {
 
         ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory("vm://localhost?broker.persistent=false");
@@ -792,6 +826,7 @@ public class MDBTest {
         final CountDownLatch messageDelivered = new CountDownLatch(2);
 
         final StubMessageEndpoint endpoint = new StubMessageEndpoint() {
+            @Override
             public void onMessage(Message message) {
                 super.onMessage(message);
                 try {
@@ -816,6 +851,7 @@ public class MDBTest {
                 }
             };
 
+            @Override
             public void afterDelivery() throws ResourceException {
                 try {
                     xaresource.end(xid, XAResource.TMSUCCESS);
@@ -833,11 +869,13 @@ public class MDBTest {
         activationSpec.validate();
 
         MessageEndpointFactory messageEndpointFactory = new MessageEndpointFactory() {
+            @Override
             public MessageEndpoint createEndpoint(XAResource resource) throws UnavailableException {
                 endpoint.xaresource = resource;
                 return endpoint;
             }
 
+            @Override
             public boolean isDeliveryTransacted(Method method) throws NoSuchMethodException {
                 return true;
             }
@@ -850,7 +888,6 @@ public class MDBTest {
         try {
             Thread.sleep(1000);
         } catch (Exception e) {
-
         }
 
         // Send the broker a message to that endpoint
@@ -864,10 +901,8 @@ public class MDBTest {
         // Shut the Endpoint down.
         adapter.endpointDeactivation(messageEndpointFactory, activationSpec);
         adapter.stop();
-
     }
 
-    AtomicInteger id = new AtomicInteger(0);
     public Xid createXid() throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream os = new DataOutputStream(baos);
@@ -878,23 +913,25 @@ public class MDBTest {
 
         return new Xid() {
             final int lid = id.get();
+            @Override
             public int getFormatId() {
                 return 86;
             }
 
+            @Override
             public byte[] getGlobalTransactionId() {
                 return bs;
             }
 
+            @Override
             public byte[] getBranchQualifier() {
                 return bs;
             }
 
+            @Override
             public String toString() {
                 return "DummyIdXID:" + lid;
             }
         };
-
     }
-
 }
