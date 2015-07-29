@@ -105,6 +105,7 @@
         <include>examples/**/*.sh</include>
         <include>examples/**/*.rb</include>
         <include>examples/**/*.py</include>
+        <include>examples/**/pom.xml</include>
       </includes>
       <directoryMode>0755</directoryMode>
       <fileMode>0755</fileMode>
