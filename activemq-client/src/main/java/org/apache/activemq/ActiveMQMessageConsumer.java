@@ -506,6 +506,10 @@ public class ActiveMQMessageConsumer implements MessageAvailableConsumer, StatsC
                         LOG.debug(getConsumerId() + " received with excessive redelivered: " + md);
                     }
                     posionAck(md, "dispatch to " + getConsumerId() + " exceeds redelivery policy limit:" + redeliveryPolicy);
+                    if (timeout > 0) {
+                        timeout = Math.max(deadline - System.currentTimeMillis(), 0);
+                    }
+                    sendPullCommand(timeout);
                 } else {
                     if (LOG.isTraceEnabled()) {
                         LOG.trace(getConsumerId() + " received message: " + md);
