@@ -1640,4 +1640,14 @@
   </repository>
   </repositories>
 
+  
+  <pluginRepositories>
+    <pluginRepository>
+      <id>jboss.org-fs-releases</id>
+      <url>https://repository.jboss.org/nexus/content/repositories/fs-releases/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>false</enabled></snapshots>
+    </pluginRepository>
+  </pluginRepositories>
+
 </project>
