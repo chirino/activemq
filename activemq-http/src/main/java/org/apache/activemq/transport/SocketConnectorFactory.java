@@ -37,7 +37,6 @@ public class SocketConnectorFactory {
             Server.class.getMethod("setStopTimeout", Long.TYPE).invoke(server, 500);
             connector.getClass().getMethod("setStopTimeout", Long.TYPE).invoke(connector, 500);
         }
-        System.out.println(transportOptions);
         if (transportOptions != null) {
             IntrospectionSupport.setProperties(connector, transportOptions, "");
         }
