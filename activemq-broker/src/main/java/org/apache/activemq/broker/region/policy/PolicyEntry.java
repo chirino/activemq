@@ -962,4 +962,9 @@ public class PolicyEntry extends DestinationMapEntry {
     public boolean isPersistJMSRedelivered() {
         return persistJMSRedelivered;
     }
+
+    @Override
+    public String toString() {
+        return "PolicyEntry [" + destination + "]";
+    }
 }
