@@ -185,7 +185,7 @@ public class MQTTVirtualTopicSubscriptionStrategy extends AbstractMQTTSubscripti
                 });
             }
         } catch (Throwable e) {
-            LOG.warn("Could not delete the MQTT durable subs.", e);
+            LOG.warn("Could not delete the MQTT queue subscriptions.", e);
         }
     }
 
@@ -233,7 +233,7 @@ public class MQTTVirtualTopicSubscriptionStrategy extends AbstractMQTTSubscripti
         final QueueRegion queueRegion = (QueueRegion) regionBroker.getQueueRegion();
         for (ActiveMQDestination destination : queueRegion.getDestinationMap().keySet()) {
             if (destination.isQueue() && !destination.isTemporary()) {
-                if (destination.getPhysicalName().startsWith("Consumer." + clientId)) {
+                if (destination.getPhysicalName().startsWith("Consumer." + clientId + ":")) {
                     LOG.debug("Recovered client sub: {} on connect", destination.getPhysicalName());
                     result.add((ActiveMQQueue) destination);
                 }
