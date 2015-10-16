@@ -18,13 +18,12 @@ package org.apache.activemq.transport.xstream;
 
 import java.io.IOException;
 import java.io.Reader;
-
+import com.thoughtworks.xstream.XStream;
 import org.apache.activemq.command.MarshallAware;
 import org.apache.activemq.command.MessageDispatch;
+import org.apache.activemq.transport.stomp.XStreamSupport;
 import org.apache.activemq.transport.util.TextWireFormat;
 import org.apache.activemq.wireformat.WireFormat;
-
-import com.thoughtworks.xstream.XStream;
 
 /**
  * A {@link WireFormat} implementation which uses the <a
@@ -110,7 +109,7 @@ public class XStreamWireFormat extends TextWireFormat {
     // Implementation methods
     // -------------------------------------------------------------------------
     protected XStream createXStream() {
-        XStream xstream = new XStream();
+        final XStream xstream = XStreamSupport.createXStream();
         xstream.ignoreUnknownElements();
         return xstream;
     }
