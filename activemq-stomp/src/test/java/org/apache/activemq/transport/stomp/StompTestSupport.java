@@ -111,7 +111,6 @@ public class StompTestSupport {
     }
 
     public void startBroker() throws Exception {
-        System.setProperty("org.apache.activemq.SERIALIZABLE_PACKAGES", "*");
         createBroker(true);
 
         XStreamBrokerContext context = new XStreamBrokerContext();
