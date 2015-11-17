@@ -54,7 +54,7 @@
     <cglib-version>2.2</cglib-version>
     <commons-beanutils-version>1.8.3</commons-beanutils-version>
     <commons-codec-version>1.10</commons-codec-version>
-    <commons-collections-version>3.2.1</commons-collections-version>
+    <commons-collections-version>3.2.1.redhat-5</commons-collections-version>
     <commons-daemon-version>1.0.15</commons-daemon-version>
     <commons-dbcp2-version>2.1</commons-dbcp2-version>
     <commons-io-version>2.4</commons-io-version>
@@ -1638,6 +1638,23 @@
     <id>spring-milestones</id>
     <url>http://repo.springsource.org/libs-milestone/</url>
   </repository>
+        <repository>
+          <id>redhat-product</id>
+          <name>Redhat Product Repository</name>
+          <url>https://maven.repository.redhat.com/techpreview/all</url>
+        </repository>
+        <repository>
+            <id>brewroot</id>
+            <name>Brew Repository</name>
+            <url>http://download.eng.bos.redhat.com/brewroot/repos/jb-fuse-6.2-build/latest/maven</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </releases>
+        </repository>
   </repositories>
 
   
