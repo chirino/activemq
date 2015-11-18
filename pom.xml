@@ -54,7 +54,7 @@
     <cglib-version>2.2</cglib-version>
     <commons-beanutils-version>1.8.3</commons-beanutils-version>
     <commons-codec-version>1.10</commons-codec-version>
-    <commons-collections-version>3.2.1.redhat-5</commons-collections-version>
+    <commons-collections-version>3.2.1.redhat-7</commons-collections-version>
     <commons-daemon-version>1.0.15</commons-daemon-version>
     <commons-dbcp2-version>2.1</commons-dbcp2-version>
     <commons-io-version>2.4</commons-io-version>
