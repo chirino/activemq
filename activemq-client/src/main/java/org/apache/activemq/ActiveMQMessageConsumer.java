@@ -719,9 +719,6 @@ public class ActiveMQMessageConsumer implements MessageAvailableConsumer, StatsC
     }
 
     void doClose() throws JMSException {
-        // Store interrupted state and clear so that Transport operations don't
-        // throw InterruptedException and we ensure that resources are cleaned up.
-        boolean interrupted = Thread.interrupted();
         dispose();
         RemoveInfo removeCommand = info.createRemoveCommand();
         if (LOG.isDebugEnabled()) {
@@ -729,9 +726,6 @@ public class ActiveMQMessageConsumer implements MessageAvailableConsumer, StatsC
         }
         removeCommand.setLastDeliveredSequenceId(lastDeliveredSequenceId);
         this.session.asyncSendPacket(removeCommand);
-        if (interrupted) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     void inProgressClearRequired() {
