@@ -85,11 +85,8 @@ public class ConnectionManagerAdapter implements ConnectionManager, ConnectionEv
         } catch (ResourceException e) {
             LOG.warn("Error occured during the cleanup of a managed connection: ", e);
         }
-        try {
-            ((ManagedConnection)event.getSource()).destroy();
-        } catch (ResourceException e) {
-            LOG.warn("Error occured during the destruction of a managed connection: ", e);
-        }
+
+        // should go back in a pool, no destroy
     }
 
     /**
