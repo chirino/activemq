@@ -372,7 +372,7 @@ public class AdvisoryBroker extends BrokerFilter {
                 advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_MESSAGE_ID, payload.getMessageId().toString());
                 ActiveMQDestination destination = payload.getDestination();
                 if (destination != null) {
-                    advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, payload.getMessageId().toString());
+                    advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, destination.getQualifiedName());
                 }
                 fireAdvisory(context, topic, payload, null, advisoryMessage);
             }
@@ -393,7 +393,7 @@ public class AdvisoryBroker extends BrokerFilter {
                 advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_MESSAGE_ID, payload.getMessageId().toString());
                 ActiveMQDestination destination = payload.getDestination();
                 if (destination != null) {
-                    advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, payload.getMessageId().toString());
+                    advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, destination.getQualifiedName());
                 }
                 fireAdvisory(context, topic, payload, null, advisoryMessage);
             }
@@ -418,7 +418,7 @@ public class AdvisoryBroker extends BrokerFilter {
                 advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_CONSUMER_ID, sub.getConsumerInfo().getConsumerId().toString());
                 ActiveMQDestination destination = payload.getDestination();
                 if (destination != null) {
-                    advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, payload.getMessageId().toString());
+                    advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, destination.getQualifiedName());
                 }
                 fireAdvisory(context, topic, payload, null, advisoryMessage);
             }

@@ -122,6 +122,9 @@ public class AdvisoryTests {
 
         Message msg = advisoryConsumer.receive(1000);
         assertNotNull(msg);
+        ActiveMQMessage message = (ActiveMQMessage) msg;
+
+        assertEquals(message.getProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION), ((ActiveMQDestination) queue).getQualifiedName());
     }
 
     @Test(timeout = 60000)
@@ -149,6 +152,9 @@ public class AdvisoryTests {
         ActiveMQMessage payload = (ActiveMQMessage) message.getDataStructure();
         String originalId = payload.getJMSMessageID();
         assertEquals(originalId, id);
+
+        assertEquals(message.getProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION), ((ActiveMQDestination) queue).getQualifiedName());
+
     }
 
     @Test(timeout = 60000)
@@ -196,10 +202,9 @@ public class AdvisoryTests {
         // we should get here without StackOverflow
     }
 
-    @Ignore
     @Test(timeout = 60000)
     public void testMessageDiscardedAdvisory() throws Exception {
-        Session s = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+        Session s = connection.createSession(false, Session.CLIENT_ACKNOWLEDGE);
         Topic topic = s.createTopic(getClass().getName());
         MessageConsumer consumer = s.createConsumer(topic);
         assertNotNull(consumer);
@@ -216,6 +221,10 @@ public class AdvisoryTests {
 
         Message msg = advisoryConsumer.receive(1000);
         assertNotNull(msg);
+        ActiveMQMessage message = (ActiveMQMessage) msg;
+
+        assertEquals(message.getProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION), ((ActiveMQDestination) topic).getQualifiedName());
+
     }
 
     @Before
