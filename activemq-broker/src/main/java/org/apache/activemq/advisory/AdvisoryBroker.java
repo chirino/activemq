@@ -31,6 +31,7 @@ import org.apache.activemq.broker.BrokerFilter;
 import org.apache.activemq.broker.BrokerService;
 import org.apache.activemq.broker.ConnectionContext;
 import org.apache.activemq.broker.ProducerBrokerExchange;
+import org.apache.activemq.broker.region.BaseDestination;
 import org.apache.activemq.broker.region.Destination;
 import org.apache.activemq.broker.region.DurableTopicSubscription;
 import org.apache.activemq.broker.region.MessageReference;
@@ -348,7 +349,8 @@ public class AdvisoryBroker extends BrokerFilter {
         super.messageExpired(context, messageReference, subscription);
         try {
             if (!messageReference.isAdvisory()) {
-                ActiveMQTopic topic = AdvisorySupport.getExpiredMessageTopic(messageReference.getMessage().getDestination());
+                BaseDestination baseDestination = (BaseDestination) messageReference.getMessage().getRegionDestination();
+                ActiveMQTopic topic = AdvisorySupport.getExpiredMessageTopic(baseDestination.getActiveMQDestination());
                 Message payload = messageReference.getMessage().copy();
                 payload.clearBody();
                 ActiveMQMessage advisoryMessage = new ActiveMQMessage();
@@ -365,15 +367,13 @@ public class AdvisoryBroker extends BrokerFilter {
         super.messageConsumed(context, messageReference);
         try {
             if (!messageReference.isAdvisory()) {
-                ActiveMQTopic topic = AdvisorySupport.getMessageConsumedAdvisoryTopic(messageReference.getMessage().getDestination());
+                BaseDestination baseDestination = (BaseDestination) messageReference.getMessage().getRegionDestination();
+                ActiveMQTopic topic = AdvisorySupport.getMessageConsumedAdvisoryTopic(baseDestination.getActiveMQDestination());
                 Message payload = messageReference.getMessage().copy();
                 payload.clearBody();
                 ActiveMQMessage advisoryMessage = new ActiveMQMessage();
                 advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_MESSAGE_ID, payload.getMessageId().toString());
-                ActiveMQDestination destination = payload.getDestination();
-                if (destination != null) {
-                    advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, destination.getQualifiedName());
-                }
+                advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, baseDestination.getActiveMQDestination().getQualifiedName());
                 fireAdvisory(context, topic, payload, null, advisoryMessage);
             }
         } catch (Exception e) {
@@ -386,15 +386,13 @@ public class AdvisoryBroker extends BrokerFilter {
         super.messageDelivered(context, messageReference);
         try {
             if (!messageReference.isAdvisory()) {
-                ActiveMQTopic topic = AdvisorySupport.getMessageDeliveredAdvisoryTopic(messageReference.getMessage().getDestination());
+                BaseDestination baseDestination = (BaseDestination) messageReference.getMessage().getRegionDestination();
+                ActiveMQTopic topic = AdvisorySupport.getMessageDeliveredAdvisoryTopic(baseDestination.getActiveMQDestination());
                 Message payload = messageReference.getMessage().copy();
                 payload.clearBody();
                 ActiveMQMessage advisoryMessage = new ActiveMQMessage();
                 advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_MESSAGE_ID, payload.getMessageId().toString());
-                ActiveMQDestination destination = payload.getDestination();
-                if (destination != null) {
-                    advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, destination.getQualifiedName());
-                }
+                advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, baseDestination.getActiveMQDestination().getQualifiedName());
                 fireAdvisory(context, topic, payload, null, advisoryMessage);
             }
         } catch (Exception e) {
@@ -407,7 +405,8 @@ public class AdvisoryBroker extends BrokerFilter {
         super.messageDiscarded(context, sub, messageReference);
         try {
             if (!messageReference.isAdvisory()) {
-                ActiveMQTopic topic = AdvisorySupport.getMessageDiscardedAdvisoryTopic(messageReference.getMessage().getDestination());
+                BaseDestination baseDestination = (BaseDestination) messageReference.getMessage().getRegionDestination();
+                ActiveMQTopic topic = AdvisorySupport.getMessageDiscardedAdvisoryTopic(baseDestination.getActiveMQDestination());
                 Message payload = messageReference.getMessage().copy();
                 payload.clearBody();
                 ActiveMQMessage advisoryMessage = new ActiveMQMessage();
@@ -416,10 +415,8 @@ public class AdvisoryBroker extends BrokerFilter {
                 }
                 advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_MESSAGE_ID, payload.getMessageId().toString());
                 advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_CONSUMER_ID, sub.getConsumerInfo().getConsumerId().toString());
-                ActiveMQDestination destination = payload.getDestination();
-                if (destination != null) {
-                    advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, destination.getQualifiedName());
-                }
+                advisoryMessage.setStringProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION, baseDestination.getActiveMQDestination().getQualifiedName());
+
                 fireAdvisory(context, topic, payload, null, advisoryMessage);
             }
         } catch (Exception e) {
@@ -496,7 +493,8 @@ public class AdvisoryBroker extends BrokerFilter {
         if (wasDLQd) {
             try {
                 if (!messageReference.isAdvisory()) {
-                    ActiveMQTopic topic = AdvisorySupport.getMessageDLQdAdvisoryTopic(messageReference.getMessage().getDestination());
+                    BaseDestination baseDestination = (BaseDestination) messageReference.getMessage().getRegionDestination();
+                    ActiveMQTopic topic = AdvisorySupport.getMessageDLQdAdvisoryTopic(baseDestination.getActiveMQDestination());
                     Message payload = messageReference.getMessage().copy();
                     payload.clearBody();
                     fireAdvisory(context, topic, payload);

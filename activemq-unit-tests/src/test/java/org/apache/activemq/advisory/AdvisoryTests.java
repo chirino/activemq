@@ -19,6 +19,11 @@ package org.apache.activemq.advisory;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
 
 import javax.jms.BytesMessage;
 import javax.jms.Connection;
@@ -40,9 +45,10 @@ import org.apache.activemq.broker.region.policy.PolicyEntry;
 import org.apache.activemq.broker.region.policy.PolicyMap;
 import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.command.ActiveMQMessage;
+import org.apache.activemq.command.ActiveMQQueue;
+import org.apache.activemq.command.ActiveMQTopic;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -225,6 +231,46 @@ public class AdvisoryTests {
 
         assertEquals(message.getProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION), ((ActiveMQDestination) topic).getQualifiedName());
 
+    }
+
+    @Test(timeout = 60000)
+    public void testMessageDeliveryVTAdvisory() throws Exception {
+        Session s = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+        ActiveMQTopic vt = new ActiveMQTopic("VirtualTopic.TEST");
+
+        ActiveMQQueue a  = new ActiveMQQueue("Consumer.A.VirtualTopic.TEST");
+        MessageConsumer consumer = s.createConsumer(a);
+
+        ActiveMQQueue b = new ActiveMQQueue("Consumer.B.VirtualTopic.TEST");
+        MessageConsumer consumerB = s.createConsumer(b);
+
+        assertNotNull(consumer);
+        assertNotNull(consumerB);
+
+        HashSet<String> dests = new HashSet<String>();
+        dests.add(vt.getQualifiedName());
+        dests.add(a.getQualifiedName());
+        dests.add(b.getQualifiedName());
+
+
+        Topic advisoryTopic = new ActiveMQTopic(AdvisorySupport.MESSAGE_DELIVERED_TOPIC_PREFIX + ">");
+        MessageConsumer advisoryConsumer = s.createConsumer(advisoryTopic);
+
+        // throw messages at the vt
+        MessageProducer producer = s.createProducer(vt);
+
+        BytesMessage m = s.createBytesMessage();
+        m.writeBytes(new byte[1024]);
+        producer.send(m);
+
+        Message msg = null;
+        while ((msg = advisoryConsumer.receive(1000)) != null) {
+            ActiveMQMessage message = (ActiveMQMessage) msg;
+            String dest = (String) message.getProperty(AdvisorySupport.MSG_PROPERTY_DESTINATION);
+            dests.remove(dest);
+        }
+
+        assertTrue("Got delivered for all: " + dests, dests.isEmpty());
     }
 
     @Before
