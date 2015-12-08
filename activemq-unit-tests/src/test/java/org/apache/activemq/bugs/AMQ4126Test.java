@@ -34,7 +34,6 @@ import org.apache.activemq.transport.stomp.StompConnection;
 import org.apache.activemq.transport.stomp.StompFrame;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -149,13 +148,11 @@ public class AMQ4126Test {
         openwireConnectTo("openwire+ssl", null, null);
     }
 
-    @Ignore("ENTMQ-1428")
     @Test
     public void testOpenwireNIOSSLWithUsernameAndPassword() throws Exception {
         openwireConnectTo("openwire+nio+ssl", "system", "mmanager");
     }
 
-    @Ignore("ENTMQ-1428")
     @Test
     public void testOpenwireNIOSSLWithCertificate() throws Exception {
         openwireConnectTo("openwire+nio+ssl", null, null);
