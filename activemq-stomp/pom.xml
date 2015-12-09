@@ -192,7 +192,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes combine.children="append">
-                                <exclude>*NIO*/*.*</exclude>
+                                <exclude>**/*NIO*.*</exclude>
+                                <exclude>**/StompSubscriptionRemoveTest.*</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
