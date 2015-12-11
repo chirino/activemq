@@ -1713,6 +1713,7 @@ public abstract class MessageDatabase extends ServiceSupport implements BrokerSe
                 LOG.trace("gc candidates: " + gcCandidateSet);
                 LOG.trace("ackMessageFileMap: " +  metadata.ackMessageFileMap);
             }
+            boolean ackMessageFileMapMod = false;
             Iterator<Integer> candidates = gcCandidateSet.iterator();
             while (candidates.hasNext()) {
                 Integer candidate = candidates.next();
@@ -1726,7 +1727,7 @@ public abstract class MessageDatabase extends ServiceSupport implements BrokerSe
                         }
                     }
                     if (gcCandidateSet.contains(candidate)) {
-                        metadata.ackMessageFileMap.remove(candidate);
+                        ackMessageFileMapMod |= (metadata.ackMessageFileMap.remove(candidate) != null);
                     } else {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("not removing data file: " + candidate
@@ -1741,7 +1742,6 @@ public abstract class MessageDatabase extends ServiceSupport implements BrokerSe
                     LOG.debug("Cleanup removing the data files: " + gcCandidateSet);
                 }
                 journal.removeDataFiles(gcCandidateSet);
-                boolean ackMessageFileMapMod = false;
                 for (Integer candidate : gcCandidateSet) {
                     for (Set<Integer> ackFiles : metadata.ackMessageFileMap.values()) {
                         ackMessageFileMapMod |= ackFiles.remove(candidate);
