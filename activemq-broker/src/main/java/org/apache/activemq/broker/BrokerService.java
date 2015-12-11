@@ -574,6 +574,7 @@ public class BrokerService implements Service {
             return;
         }
 
+        setStartException(null);
         stopping.set(false);
         startDate = new Date();
         MDC.put("activemq.broker", brokerName);
@@ -628,7 +629,7 @@ public class BrokerService implements Service {
                     try {
                         doStartPersistenceAdapter();
                     } catch (Throwable e) {
-                        startException = e;
+                        setStartException(e);
                     } finally {
                         synchronized (persistenceAdapterLock) {
                             persistenceAdapterLock.notifyAll();
@@ -674,7 +675,7 @@ public class BrokerService implements Service {
                         }
                         doStartBroker();
                     } catch (Throwable t) {
-                        startException = t;
+                        setStartException(t);
                     }
                 }
             }.start();
@@ -684,9 +685,7 @@ public class BrokerService implements Service {
     }
 
     private void doStartBroker() throws Exception {
-        if (startException != null) {
-            return;
-        }
+        checkStartException();
         startDestinations();
         addShutdownHook();
 
@@ -756,6 +755,9 @@ public class BrokerService implements Service {
             return;
         }
 
+        if (started.get()) {
+            setStartException(new BrokerStoppedException("Stop invoked"));
+        }
         MDC.put("activemq.broker", brokerName);
 
         if (systemExitOnShutdown) {
@@ -801,7 +803,7 @@ public class BrokerService implements Service {
             tempDataStore = null;
         }
         try {
-            stopper.stop(persistenceAdapter);
+            stopper.stop(getPersistenceAdapter());
             persistenceAdapter = null;
             if (isUseJmx()) {
                 stopper.stop(getManagementContext());
@@ -959,7 +961,7 @@ public class BrokerService implements Service {
         long expiration = Math.max(0, timeout + System.currentTimeMillis());
         while (!isStarted() && !stopped.get() && !waitSucceeded && expiration > System.currentTimeMillis()) {
             try {
-                if (startException != null) {
+                if (getStartException() != null) {
                     return waitSucceeded;
                 }
                 waitSucceeded = startedLatch.await(100L, TimeUnit.MILLISECONDS);
@@ -976,6 +978,7 @@ public class BrokerService implements Service {
      */
     public Broker getBroker() throws Exception {
         if (broker == null) {
+            checkStartException();
             broker = createBroker();
         }
         return broker;
@@ -1195,8 +1198,9 @@ public class BrokerService implements Service {
         addService(this.producerSystemUsage);
     }
 
-    public PersistenceAdapter getPersistenceAdapter() throws IOException {
+    public synchronized PersistenceAdapter getPersistenceAdapter() throws IOException {
         if (persistenceAdapter == null) {
+            checkStartException();
             persistenceAdapter = createPersistenceAdapter();
             configureService(persistenceAdapter);
             this.persistenceAdapter = registerPersistenceAdapterMBean(persistenceAdapter);
@@ -1284,9 +1288,20 @@ public class BrokerService implements Service {
 
     public ManagementContext getManagementContext() {
         if (managementContext == null) {
+            checkStartException();
             managementContext = new ManagementContext();
         }
         return managementContext;
+    }
+
+    synchronized private void checkStartException() {
+        if (startException != null) {
+            throw new BrokerStoppedException(startException);
+        }
+    }
+
+    synchronized private void setStartException(Throwable t) {
+        startException = t;
     }
 
     public void setManagementContext(ManagementContext managementContext) {
@@ -2604,6 +2619,7 @@ public class BrokerService implements Service {
     }
 
     protected void startVirtualConsumerDestinations() throws Exception {
+        checkStartException();
         ConnectionContext adminConnectionContext = getAdminConnectionContext();
         Set<ActiveMQDestination> destinations = destinationFactory.getDestinations();
         DestinationFilter filter = getVirtualTopicConsumerDestinationFilter();
@@ -2951,7 +2967,7 @@ public class BrokerService implements Service {
                getVirtualTopicConsumerDestinationFilter().matches(destination);
     }
 
-    public Throwable getStartException() {
+    synchronized public Throwable getStartException() {
         return startException;
     }
 
