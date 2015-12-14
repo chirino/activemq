@@ -755,9 +755,7 @@ public class BrokerService implements Service {
             return;
         }
 
-        if (started.get()) {
-            setStartException(new BrokerStoppedException("Stop invoked"));
-        }
+        setStartException(new BrokerStoppedException("Stop invoked"));
         MDC.put("activemq.broker", brokerName);
 
         if (systemExitOnShutdown) {
@@ -806,7 +804,7 @@ public class BrokerService implements Service {
             stopper.stop(getPersistenceAdapter());
             persistenceAdapter = null;
             if (isUseJmx()) {
-                stopper.stop(getManagementContext());
+                stopper.stop(managementContext);
                 managementContext = null;
             }
             // Clear SelectorParser cache to free memory
@@ -1199,8 +1197,7 @@ public class BrokerService implements Service {
     }
 
     public synchronized PersistenceAdapter getPersistenceAdapter() throws IOException {
-        if (persistenceAdapter == null) {
-            checkStartException();
+        if (persistenceAdapter == null && !hasStartException()) {
             persistenceAdapter = createPersistenceAdapter();
             configureService(persistenceAdapter);
             this.persistenceAdapter = registerPersistenceAdapterMBean(persistenceAdapter);
@@ -1298,6 +1295,10 @@ public class BrokerService implements Service {
         if (startException != null) {
             throw new BrokerStoppedException(startException);
         }
+    }
+
+    synchronized private boolean hasStartException() {
+        return startException != null;
     }
 
     synchronized private void setStartException(Throwable t) {
